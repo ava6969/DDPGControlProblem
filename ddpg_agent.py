@@ -11,13 +11,13 @@ import torch.optim as optim
 
 BUFFER_SIZE = int(1e6)  # replay buffer size
 BATCH_SIZE = 128  # minibatch size
-GAMMA = 0.95  # discount factor
+GAMMA = 0.99  # discount factor
 TAU = 1e-3  # for soft update of target parameters
 LR_ACTOR = 1e-4  # learning rate of the actor
-LR_CRITIC = 1e-3  # learning rate of the critic
+LR_CRITIC = 1e-4  # learning rate of the critic
 WEIGHT_DECAY = 0  # L2 weight decay
-EPOCHS = 1
-UPDATE_EVERY = 5
+EPOCHS = 10
+UPDATE_EVERY = 20
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -112,8 +112,7 @@ class Agent():
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
-        #new
-        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        #newtorch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
         actions_pred = self.actor_local(states)
@@ -197,7 +196,7 @@ class ReplayBuffer:
         dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(
             device)
 
-        return (states, actions, rewards, next_states, dones)
+        return np.array([states, actions, rewards, next_states, dones])
 
     def __len__(self):
         """Return the current size of internal memory."""

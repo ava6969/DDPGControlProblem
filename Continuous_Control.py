@@ -3,11 +3,12 @@ from unityagents import UnityEnvironment
 import numpy as np
 from ddpg_agent import Agent
 from collections import deque
-seed=4
+import matplotlib.pyplot as plt
+
+seed=10
 
 # select this option to load version 1 (with a single agent) of the environment
-env = UnityEnvironment(file_name='Reacher', seed=seed)
-
+env = UnityEnvironment(file_name='Reacher', seed=seed,worker_id=1)
 
 
 # get the default brain
@@ -34,12 +35,13 @@ print('The state for the first agent looks like:', states[0])
 
 agent = Agent(state_size, action_size, seed)
 
-# agent.actor_local.state_dict(torch.load('actor.pth'))
-# agent.actor_local.state_dict(torch.load('critic.pth'))
-repeat_every = 5
+agent.actor_local.state_dict(torch.load('actor.pth'))
+agent.actor_local.state_dict(torch.load('critic.pth'))
+print_every = 10
+save_every = 100
 
 
-def train(n_episodes=1000, max_t=1000, eps_start=1.0, eps_end=0.1, eps_decay=0.000001):
+def train(n_episodes=1000, max_t=1000, eps_start=1.0, eps_end=0.1, eps_decay=0.0001):
     """Deep Q-Learning.
     
     Params
@@ -50,51 +52,52 @@ def train(n_episodes=1000, max_t=1000, eps_start=1.0, eps_end=0.1, eps_decay=0.0
         eps_end (float): minimum value of epsilon
         eps_decay (float): multiplicative factor (per episode) for decreasing epsilon
     """
-    scores = []      # list containing scores from each episode
-    scores_window = deque(maxlen=repeat_every)  # last 5 scores
+    total_scores = []      # list containing scores from each episode
+    scores_window = deque(maxlen=100)  # last 100 scores
+
     eps = eps_start                    # initialize epsilon
     for i_episode in range(1, n_episodes+1):
         env_info = env.reset(train_mode=True)[brain_name] # reset the environment
         state = env_info.vector_observations          # get the current state
         agent.reset()
-        score = np.zeros(num_agents)
+        scores = np.zeros(num_agents)
         for t in range(max_t):
             action = agent.act(eps, state)
             env_info = env.step(action)[brain_name]        # send the action to the environment
             next_state = env_info.vector_observations
             reward = env_info.rewards
-            done = (env_info.local_done)
-            score += reward
+            done = env_info.local_done
+            scores += reward
+
             agent.step(t, state, action, reward, next_state, done)
             state = next_state
 
             if np.any(done):
                 break
-        scores_window.append(score)       # save most recent score
-        scores.append(score)              # save most recent score
+        scores_window.append(scores)
+        total_scores.append(scores)
+        total_average_score = np.mean(scores_window)
         eps = max(eps_end, eps-eps_decay) # decrease epsilon
-        if i_episode % repeat_every == 0:
-            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
+        if i_episode % print_every == 0:
+            print('\rEpisode {}\tTotal Average Score: {:.2f}'.
+                  format(i_episode, total_average_score))
 
-        if i_episode % 100 == 0:
+        if i_episode % save_every == 0:
             torch.save(agent.actor_local.state_dict(), 'actor.pth')
             torch.save(agent.critic_local.state_dict(), 'critic.pth')
         if np.mean(scores_window) >= 30.0:
-            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean( scores_window )))
+            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'
+                  .format(i_episode-100, total_average_score))
             torch.save(agent.actor_local.state_dict(), 'actor.pth')
             torch.save(agent.critic_local.state_dict(), 'critic.pth')
             break
 
-    return scores
+    return total_scores
 
 
 scores = train()
 
 
-# In[ ]:
-
-
-import matplotlib.pyplot as plt
 # plot the scores
 fig = plt.figure()
 ax = fig.add_subplot(111)
